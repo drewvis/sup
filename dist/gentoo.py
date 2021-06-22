@@ -590,7 +590,11 @@ class GentooInstaller(LinuxInstaller):
             srcs = kernel.get('sources', 'sys-kernel/gentoo-sources')
             r, o = self.exec_cmd(['emerge', '--quiet-build', srcs])
 
-            os.chdir('/usr/src/linux')
+            try:
+                os.chdir('/usr/src/linux')
+            except FileNotFoundError:
+                self.exec_cmd(['eselect', 'kerenl', 'set', '1'])
+                os.chdir('/usr/src/linux')
 
             if self.kconfig:
                 with open('.config', 'w') as f:

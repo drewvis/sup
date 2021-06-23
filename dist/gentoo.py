@@ -593,7 +593,7 @@ class GentooInstaller(LinuxInstaller):
             try:
                 os.chdir('/usr/src/linux')
             except FileNotFoundError:
-                self.exec_cmd(['eselect', 'kerenl', 'set', '1'])
+                self.exec_cmd(['eselect', 'kernel', 'set', '1'])
                 os.chdir('/usr/src/linux')
 
             if self.kconfig:

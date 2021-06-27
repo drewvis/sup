@@ -8,10 +8,11 @@ Currently supports installations of Arch Linux and Gentoo Linux. All installs we
 
 ## Usage
 Install scripts currently exist for Arch (`install_arch.py`) and Gentoo (`install_gentoo.py`) respectively. An example of how to install Gentoo linux using a custom sup build config along with a custom kernel kconfig is show below:
+
 `
 python3 install_gentoo.py -f builds/vmware/gentoo/vmware_lvm.cfg -k builds/vmware/kconfigs/openrc.kfg --prepdisks --getstage --setupenv --config-portage --sysconf --update-world --kernel --fstab --packages --services --bootloader --network --users --display
 `
 
-Note: Do not run install scripts against block devices that you do want to erase; IT WILL FORMAT THE DEVICE AND ERASE ALL YOUR DATA.
+Note: Running install scripts against a block device will delete its contents; IT WILL FORMAT THE DEVICE AND YOU WILL LOSE YOUR DATA.
 
 (work in progress)

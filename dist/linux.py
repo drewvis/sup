@@ -177,6 +177,11 @@ class LinuxInstaller(UnixInstaller):
 
         for d in disks:
 
+            dev_name = input('!!! WARNING: All data on %s will be erased; '
+                             'enter the device name to confirm: ' % d['name'])
+            if dev_name != d['name']:
+                raise Exception('Failed to confirm disk overwrite, exiting')
+
             if d.get('label'):
                 try:
                     self.exec_cmd(['parted', '-s', d['name'], 'mklabel', d['label']])

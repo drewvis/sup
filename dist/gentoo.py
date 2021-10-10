@@ -104,6 +104,16 @@ class GentooInstaller(LinuxInstaller):
 
         self.set_package_value(path, name, package)
 
+    def set_package_license(self, name, package, flags):
+
+        '''Update Licenses for a package'''
+
+        path = '/etc/portage/package.license'
+        if not os.path.exists(path):
+            os.mkdir(path)
+
+        self.set_package_value(path, name, package, flags)
+
     def set_package_accept(self, name, package, keywords):
 
         '''Update keywords for a package'''
@@ -291,6 +301,13 @@ class GentooInstaller(LinuxInstaller):
     def update_world_set(self):
         '''Update the portage @world set'''
         self.resync()
+
+        # TODO FIXME: At the time of this comment, there has been a circular dependency between
+        # hardfbuzz and freetype resulting in a failed rebuild of the world set. Explicitly resolve
+        # this until the issue is resolved upstream.
+        self.emerge_package('media-libs/freetype', flags=['--quiet-build', '--oneshot'],
+                    env={**os.environ, **{'USE': '-harfbuzz'}})
+        
         self.emerge_package(name='@world', flags=['--update', '--deep', '--newuse', '--quiet', '--quiet-build'])
 
     def trust_key(self, keyid, trustlevel):
@@ -311,7 +328,6 @@ class GentooInstaller(LinuxInstaller):
                              shell=True)
 
     def get_mirror_list(self, mirror_conf, rsync_mode=False):
-
         mirrorselect_cmd = ['mirrorselect', '-q', '-a', '-o']
         if rsync_mode:
             mirrorselect_cmd.append('-r')
@@ -399,7 +415,7 @@ class GentooInstaller(LinuxInstaller):
         self.set_rsync_mirror(mirrors)
 
         if mirrors:
-            mirror_list = self.get_mirror_list(mirrors)
+           mirror_list = self.get_mirror_list(mirrors)
 
         # Enter the chroot
         self.do_chroot()
@@ -432,6 +448,11 @@ class GentooInstaller(LinuxInstaller):
         packmask = portage.get('packmask')
         if packmask:
             [self.set_package_mask(n, p) for n, p in packmask]
+
+        # Mask any unwanted packages
+        packlic = portage.get('packlicense')
+        if packlic:
+            [self.set_package_license(n, p, f) for n, p, f in packlic]
 
         profile = portage.get('profile')
 
@@ -486,7 +507,6 @@ class GentooInstaller(LinuxInstaller):
 
         self.exec_cmd(['emerge', '--config', 'sys-libs/timezone-data'])
 
-    @check_chroot
     def set_locales(self, locales):
 
         '''Sets the current locale'''
@@ -874,6 +894,24 @@ class GentooInstaller(LinuxInstaller):
             self.emerge_package('net-misc/networkmanager', flags=['--quiet-build'])
             self.exec_cmd(['rc-update', 'add', 'NetworkManager', 'default'])
 
+    def update_chroot_env(self):
+        
+        '''Config the new chroot for the gentoo environment'''
+
+        if not os.path.exists('/etc/profile.env'):
+            r, o = self.exec_cmd(['env-update'])
+        
+        with open('/etc/profile.env', 'r') as f:
+            for l in f.readlines():
+                if l.startswith('export'):
+                    _, env = l.split(maxsplit=1)
+                    var, val = env.split('=', maxsplit=1)
+                    os.environ[var] = val
+        locales = self.sysconfig.get('locales')
+        if locales:
+            os.environ['LC_ALL'] = locales[0]
+            os.environ['LC_CTYPE'] = locales[0]
+
     @check_chroot
     def config_network(self, network={}):
 
@@ -995,7 +1033,8 @@ class GentooInstaller(LinuxInstaller):
         if fwiface == 'uefi':
             self.update_file_var('/etc/portage/make.conf', 'GRUB_PLATFORMS', 'efi-64')
 
-        self.exec_cmd(['emerge', '--verbose', '--quiet-build', 'sys-boot/grub:2'])
+        if not self.which('grub-mkconfig') and not self.which('grub-install'):
+            self.exec_cmd(['emerge', '--verbose', '--quiet-build', 'sys-boot/grub:2'])
 
         parts = self.get_parts_by_attr('crypt')
         for disk, dev, part in parts:

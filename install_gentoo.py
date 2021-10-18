@@ -51,6 +51,9 @@ def parse_args(parser):
     if args.all or args.fstab:
         inst.format_fstab()
 
+    if args.all or args.packages:
+        inst.get_misc_packages()
+
     if args.all or args.network:
         inst.config_network()
 
@@ -62,9 +65,6 @@ def parse_args(parser):
 
     if args.all or args.misc_config:
         inst.do_misc_config()
-
-    if args.all or args.packages:
-        inst.get_misc_packages()
 
     if args.all or args.display:
         inst.config_display()

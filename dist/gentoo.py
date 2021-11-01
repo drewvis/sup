@@ -628,6 +628,7 @@ class GentooInstaller(LinuxInstaller):
                 if firmware and len(firmware):
                     self.emerge_package('sys-kernel/linux-firmware', flags=['--quiet-build'])
                     self.emerge_package('sys-firmware/sof-firmware', flags=['--quiet-build'])
+                    self.emerge_package('net-wireless/wireless-regdb', flags=['--quiet-build'])
 
             # Compile the kernel
             targets = kernel.get('targets', '')

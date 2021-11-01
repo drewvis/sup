@@ -627,6 +627,7 @@ class GentooInstaller(LinuxInstaller):
                 firmware = self.get_var_val('CONFIG_EXTRA_FIRMWARE', lines)
                 if firmware and len(firmware):
                     self.emerge_package('sys-kernel/linux-firmware', flags=['--quiet-build'])
+                    self.emerge_package('sys-kernel/sof-firmware', flags=['--quiet-build'])
 
             # Compile the kernel
             targets = kernel.get('targets', '')

@@ -231,7 +231,7 @@ class GentooInstaller(LinuxInstaller):
         for i in range(retry_count):
             try:
                 with tempfile.NamedTemporaryFile() as tmp:
-                    digests = '%s.DIGESTS.asc' % (stage_url)
+                    digests = '%s.DIGESTS' % (stage_url)
                     self.logger.info('Getting stage signature from %s' % (digests))
                     self.logger.info('Verifying stage signatures...')
                     with urllib.request.urlopen(digests, context=ssl._create_unverified_context()) as asc:

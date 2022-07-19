@@ -243,7 +243,7 @@ class LinuxInstaller(UnixInstaller):
             # try multiple times with a 10 try timeout
             for i in range(10):
                 try:
-                    self.exec_cmd(['pvcreate', pv])
+                    self.exec_cmd(['pvcreate', '-ff', pv])
                     break
                 except CmdError as err:
                     if err.code != errno.EIO:

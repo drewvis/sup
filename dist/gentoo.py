@@ -284,6 +284,10 @@ class GentooInstaller(LinuxInstaller):
         if not self.is_mounted(self.mount_point + '/dev'):
             self.exec_cmd(['mount', '--rbind', '/dev', self.mount_point + '/dev'])
 
+        # Mount /run
+        r, o = self.exec_cmd(['mount', '--bind', '/run', self.mount_point + '/run'])
+        r, o = self.exec_cmd(['mount', '--make-slave', self.mount_point + '/run'])
+
         if init == 'systemd':
             self.exec_cmd(['mount', '--make-rslave', self.mount_point + '/sys'])
             self.exec_cmd(['mount', '--make-rslave', self.mount_point + '/dev'])
@@ -454,8 +458,6 @@ class GentooInstaller(LinuxInstaller):
         if packlic:
             [self.set_package_license(n, p, f) for n, p, f in packlic]
 
-        profile = portage.get('profile')
-
         # Set system cpu flags if not specified in the config
         if 'cpu_flags_x86' not in [v[0].lower() for v in varz]:
             self.emerge_package('app-portage/cpuid2cpuflags', flags=['--quiet-build', '--oneshot'])
@@ -466,25 +468,9 @@ class GentooInstaller(LinuxInstaller):
             cpu_flags = ' '.join(cpu_flags[1:])
             self.update_file_var('/etc/portage/make.conf', 'CPU_FLAGS_X86', cpu_flags)
 
-        # Verify the Portage snapshot here
         self.resync()
-
         # Update portage itself
         self.exec_cmd(['emerge', '--oneshot', 'portage'])
-
-        # Select the portage profile
-        r, o = self.exec_cmd(['eselect', 'profile', 'list'])
-        profset = False
-        sre = re.compile('(?<=\s\s)[a-z0-9/\.]+')
-        for line in o.split('\n'):
-            s = sre.search(line)
-            if s:
-                s = s.group(0).strip()
-                if s == profile:
-                    profset = True
-                    self.exec_cmd(['eselect', 'profile', 'set', s])
-        if not profset:
-            raise InstallException('Unable to set portage profile')
 
         self.exec_cmd(['emerge', '--info'])
 
@@ -544,14 +530,15 @@ class GentooInstaller(LinuxInstaller):
         r, o = self.exec_cmd(['eselect', 'locale', 'list'], quiet=True)
 
         # We need at least one UTF8 locale
-        if not any('utf8' in loc.lower() for loc in locales):
+        if not any('utf8' in loc.replace('-', '').lower() for loc in locales):
             raise InstallException('Need at least one utf-8 locale')
 
         for loc in locales:
-            if loc not in o:
+            nloc = loc.replace('-', '').lower()
+            if nloc not in o.lower():
                 raise InstallException('Invalid locale: %s' % (loc))
 
-            if 'utf8' in loc:
+            if 'utf8' in nloc:
                 self.exec_cmd(['eselect', 'locale', 'set', loc])
 
         r, o = self.exec_cmd(['env-update'])
@@ -1080,8 +1067,8 @@ class GentooInstaller(LinuxInstaller):
 
         # os-probe will loop forever without a /run filesystem; mount it
         self.exit_chroot()
-        r, o = self.exec_cmd(['mount', '--rbind', '/run', self.mount_point + '/run'])
-        r, o = self.exec_cmd(['mount', '--make-rslave', self.mount_point + '/run'])
+        r, o = self.exec_cmd(['mount', '--bind', '/run', self.mount_point + '/run'])
+        r, o = self.exec_cmd(['mount', '--make-slave', self.mount_point + '/run'])
         self.do_chroot()
 
         hiber_cfg = bootloader.get('hibernation')
@@ -1230,6 +1217,21 @@ class GentooInstaller(LinuxInstaller):
     def resync(self):
         verify_retry_count = 40
 
+        # Select the portage profile
+        profile = self.portage.get('profile')
+        r, o = self.exec_cmd(['eselect', 'profile', 'list'])
+        profset = False
+        sre = re.compile('(?<=\s\s)[a-z0-9/\.]+')
+        for line in o.split('\n'):
+            s = sre.search(line)
+            if s:
+                s = s.group(0).strip()
+                if s == profile:
+                    profset = True
+                    self.exec_cmd(['eselect', 'profile', 'set', s])
+        if not profset:
+            raise InstallException('Unable to set portage profile')
+
         # Verify the Portage snapshot here
         for i in range(verify_retry_count):
             try:
@@ -1237,6 +1239,7 @@ class GentooInstaller(LinuxInstaller):
                 break
             except CmdError as ce:
                 self.logger.info('Sync failed, retrying %d of %d' % (i, verify_retry_count))
+                exit()
                 if ce.code != errno.EPERM:
                     raise ce
                 if i >= verify_retry_count:

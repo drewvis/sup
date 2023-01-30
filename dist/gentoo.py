@@ -1239,7 +1239,6 @@ class GentooInstaller(LinuxInstaller):
                 break
             except CmdError as ce:
                 self.logger.info('Sync failed, retrying %d of %d' % (i, verify_retry_count))
-                exit()
                 if ce.code != errno.EPERM:
                     raise ce
                 if i >= verify_retry_count:

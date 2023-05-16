@@ -21,6 +21,7 @@ class GentooInstaller(LinuxInstaller):
         super(GentooInstaller, self).__init__(config, kconfig=kconfig, logpath=logpath)
         self.mount_point = mount_point
         self.no_chroot = no_chroot
+        self.profile_set = False
 
         self.portage = self.config.get('portage')
         self.stage = self.config.get('stage')
@@ -519,7 +520,7 @@ class GentooInstaller(LinuxInstaller):
                         if l.startswith('#'):
                             lines[i] = l[1:]
                     else:
-                        if loc not in lines:
+                        if loc not in lines and loc not in to_write:
                             to_write.append(loc)
             lines += to_write
             f.seek(0)
@@ -1215,32 +1216,38 @@ class GentooInstaller(LinuxInstaller):
 
     @check_chroot
     def resync(self):
-        verify_retry_count = 40
+        def _set_profile():
+            if not self.profile_set:
+                # Select the portage profile
+                profile = self.portage.get('profile')
+                r, o = self.exec_cmd(['eselect', 'profile', 'list'])
+                profset = False
+                sre = re.compile('(?<=\s\s)[a-z0-9/\.]+')
+                for line in o.split('\n'):
+                    s = sre.search(line)
+                    if s:
+                        s = s.group(0).strip()
+                        if s == profile:
+                            profset = True
+                            self.exec_cmd(['eselect', 'profile', 'set', s])
+                if not profset:
+                    raise InstallException('Unable to set portage profile')
+                self.profile_set = True
 
-        # Select the portage profile
-        profile = self.portage.get('profile')
-        r, o = self.exec_cmd(['eselect', 'profile', 'list'])
-        profset = False
-        sre = re.compile('(?<=\s\s)[a-z0-9/\.]+')
-        for line in o.split('\n'):
-            s = sre.search(line)
-            if s:
-                s = s.group(0).strip()
-                if s == profile:
-                    profset = True
-                    self.exec_cmd(['eselect', 'profile', 'set', s])
-        if not profset:
-            raise InstallException('Unable to set portage profile')
+        verify_retry_count = 40
 
         # Verify the Portage snapshot here
         for i in range(verify_retry_count):
             try:
-                self.exec_cmd(['emaint', 'sync', '--auto'])
+                self.exec_cmd(['emerge', '--sync'])
                 break
             except CmdError as ce:
                 self.logger.info('Sync failed, retrying %d of %d' % (i, verify_retry_count))
                 if ce.code != errno.EPERM:
                     raise ce
+                _set_profile()
                 if i >= verify_retry_count:
                     self.logger.error('Failed to verify Portage snapshot')
                     raise ce
+
+

@@ -2,6 +2,7 @@ import os
 import re
 import grp
 import pwd
+import errno
 import multiprocessing
 from shutil import copyfile, rmtree
 from urllib.parse import urlparse
@@ -583,7 +584,12 @@ class ArchInstaller(LinuxInstaller):
             pacman += package
         else:
             pacman.append(package)
-        self.exec_cmd(pacman)
+        try:
+            self.exec_cmd(pacman)
+        except CmdError as ce:
+            if ce.code == errno.EPERM:
+                self.exec_cmd(['pacman', '-Syyu', '--noconfirm'])
+                self.exec_cmd(pacman)
 
     def packman_remove(self, package, flags):
         pacman = ['pacman'] + flags + ['-R']

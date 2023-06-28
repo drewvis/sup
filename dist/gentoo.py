@@ -333,7 +333,7 @@ class GentooInstaller(LinuxInstaller):
                              shell=True)
 
     def get_mirror_list(self, mirror_conf, rsync_mode=False):
-        mirrorselect_cmd = ['mirrorselect', '-q', '-a', '-o']
+        mirrorselect_cmd = ['mirrorselect', '-q', '-o']
         if rsync_mode:
             mirrorselect_cmd.append('-r')
 
